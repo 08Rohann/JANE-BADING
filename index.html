@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ceb">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>For you 💜</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --purple:#b266ff; --glow:#d9a8ff; --bg1:#1a0b2e; --bg2:#05010d; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; }
+  body {
+    font-family:'Quicksand',system-ui,sans-serif; color:#fff;
+    background:radial-gradient(ellipse at 50% 30%, var(--bg1), var(--bg2) 75%);
+  }
+
+  /* ---------- Question screen ---------- */
+  #ask { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px; text-align:center; padding:24px; transition:opacity .8s; }
+  #ask.hide { opacity:0; pointer-events:none; }
+  #ask h1 { font-family:'Great Vibes',cursive; font-weight:400; font-size:clamp(2.2rem,8vw,4rem); text-shadow:0 0 18px var(--purple); }
+  #ask p { opacity:.8; font-size:1.1rem; }
+  .btns { display:flex; gap:20px; }
+  button.btn {
+    font:700 1.1rem 'Quicksand',sans-serif; border:none; border-radius:999px; padding:14px 38px; cursor:pointer; color:#fff;
+    transition:transform .15s;
+  }
+  button.btn:active { transform:scale(.94); }
+  .yes { background:linear-gradient(135deg,#c77dff,#7b2cbf); box-shadow:0 0 22px rgba(178,102,255,.7); }
+  .no  { background:#3a2a4d; box-shadow:0 0 10px rgba(0,0,0,.5); }
+  .no.floating { position:fixed; z-index:50; animation:pop .25s ease-out; }
+  @keyframes pop { from { transform:scale(0); } to { transform:scale(1); } }
+
+  /* ---------- Flower screen ---------- */
+  #scene { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 1.2s; }
+  #scene.show { opacity:1; }
+  #bouquet { width:min(92vw,520px); height:auto; max-height:68vh; overflow:visible; }
+  #name {
+    font-family:'Great Vibes',cursive; font-size:clamp(3.5rem,16vw,7rem); color:var(--glow); margin-top:4px;
+    text-shadow:0 0 12px var(--purple),0 0 32px var(--purple),0 0 60px #7b2cbf;
+    opacity:0; transform:translateY(14px); transition:opacity 2s 3.8s, transform 2s 3.8s;
+    animation:namePulse 3s ease-in-out infinite;
+  }
+  #scene.show #name { opacity:1; transform:none; }
+  @keyframes namePulse { 50% { text-shadow:0 0 18px var(--purple),0 0 48px var(--purple),0 0 90px #9d4edd; } }
+
+  /* growing */
+  .stem { fill:none; stroke:#3f8f55; stroke-width:4; stroke-linecap:round; stroke-dasharray:1; stroke-dashoffset:1; }
+  .leaf { transform-box:fill-box; transform-origin:0% 50%; transform:scale(0); }
+  .bloom { transform-box:fill-box; transform-origin:center; transform:scale(0); }
+  .glow { filter:drop-shadow(0 0 6px var(--purple)) drop-shadow(0 0 16px var(--purple)); animation:glow 2.8s ease-in-out infinite; }
+  @keyframes glow { 50% { filter:drop-shadow(0 0 10px var(--glow)) drop-shadow(0 0 28px var(--purple)); } }
+  #scene.show .stem { animation:grow 2.2s ease-out forwards; }
+  #scene.show .leaf { animation:leaf 1s ease-out forwards; }
+  #scene.show .bloom { animation:bloom 1.6s cubic-bezier(.2,1.4,.4,1) forwards, glow 2.8s ease-in-out infinite; }
+  @keyframes grow { to { stroke-dashoffset:0; } }
+  @keyframes leaf { to { transform:scale(1); } }
+  @keyframes bloom { to { transform:scale(1); } }
+
+  .sparkle { position:fixed; width:6px; height:6px; border-radius:50%; background:var(--glow); box-shadow:0 0 10px 3px var(--purple); pointer-events:none; opacity:0; animation:float linear infinite; }
+  @keyframes float { 0% { transform:translateY(0); opacity:0; } 15% { opacity:.9; } 100% { transform:translateY(-110vh); opacity:0; } }
+</style>
+</head>
+<body>
+
+<div id="ask">
+  <h1>Pwede mo gakosh?</h1>
+  <p>Pilia pag-ayo 👀</p>
+  <div class="btns">
+    <button class="btn yes" id="yes">Oo 💜</button>
+    <button class="btn no" id="no">Dili</button>
+  </div>
+</div>
+
+<div id="scene">
+  <svg id="bouquet" viewBox="0 0 400 400" aria-label="A glowing purple bouquet"></svg>
+</div>
+
+<script>
+/* ===================== NO BUTTON: random, infinite ===================== */
+const MAX_NO = 120;                 // safety cap so the page never freezes; oldest ones get recycled
+const noButtons = [];
+const noTexts = ["Dili","Dili jud!","Sigurado ka?","Tinuod?","Palihug 🥺","Dakpa ko!","Sulayi pag usab","Hehe","Dawata na","Huna-hunaa pag usab","Pislita na ang Oo 💜"];
+
+function randomText() { return noTexts[Math.floor(Math.random()*noTexts.length)]; }
+
+function place(el) {
+  const w = el.offsetWidth || 90, h = el.offsetHeight || 48;
+  el.style.left = Math.random()*(innerWidth - w) + "px";
+  el.style.top  = Math.random()*(innerHeight - h) + "px";
+}
+
+function makeFloatingNo() {
+  const b = document.createElement("button");
+  b.className = "btn no floating";
+  b.textContent = randomText();
+  b.addEventListener("click", onNo);
+  document.body.appendChild(b);
+  place(b);
+  noButtons.push(b);
+  if (noButtons.length > MAX_NO) noButtons.shift().remove();
+}
+
+function onNo(e) {
+  e.preventDefault();
+  const b = e.currentTarget;
+  if (!b.classList.contains("floating")) {   // first tap: original button leaves its spot
+    b.classList.add("floating");
+    noButtons.push(b);
+    document.body.appendChild(b);
+  }
+  place(b);                                   // this one jumps somewhere random
+  b.textContent = randomText();
+  makeFloatingNo(); makeFloatingNo();         // and more appear everywhere
+}
+document.getElementById("no").addEventListener("click", onNo);
+
+/* ===================== YES: grow the bouquet ===================== */
+document.getElementById("yes").addEventListener("click", () => {
+  document.getElementById("ask").classList.add("hide");
+  noButtons.forEach(b => b.remove());
+  buildBouquet();
+  requestAnimationFrame(() => document.getElementById("scene").classList.add("show"));
+  startSparkles();
+});
+
+const NS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  parent && parent.appendChild(e);
+  return e;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function addDefs(root) {
+  const d = svg("defs", {}, root);
+  d.innerHTML = `
+    <linearGradient id="petal" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#3b0f75"/><stop offset=".4" stop-color="#8a3fd1"/>
+      <stop offset=".85" stop-color="#c993ff"/><stop offset="1" stop-color="#ead6ff"/>
+    </linearGradient>
+    <linearGradient id="petalIn" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#5b1fa6"/><stop offset=".5" stop-color="#a65ce8"/><stop offset="1" stop-color="#f1e0ff"/>
+    </linearGradient>
+    <linearGradient id="tulipBack" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#3b0f75"/><stop offset=".6" stop-color="#7d33c4"/><stop offset="1" stop-color="#b678f0"/>
+    </linearGradient>
+    <linearGradient id="tulipFront" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#5a1fa8"/><stop offset=".5" stop-color="#a45be6"/><stop offset="1" stop-color="#e8cfff"/>
+    </linearGradient>
+    <radialGradient id="core"><stop offset="0" stop-color="#fff6c2"/><stop offset="1" stop-color="#f2a900"/></radialGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8fd18f"/><stop offset="1" stop-color="#2a7a3b"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f3e8ff"/><stop offset="1" stop-color="#b98be8"/>
+    </linearGradient>`;
+}
+
+function tulipPetal(s, side) {          // side: -1 left, 1 right
+  return `M0 0 C${side*.72*s} ${-.08*s} ${side*.82*s} ${-1.0*s} ${side*.42*s} ${-1.52*s} C${side*.3*s} ${-1.1*s} ${side*.1*s} ${-.5*s} 0 0Z`;
+}
+
+function flower(parent, cx, cy, r, delay, tilt) {     // a tulip
+  const s = r * 1.0;
+  const outer = svg("g", { class: "bloom glow" }, parent);
+  outer.style.animationDelay = delay + "s, " + (delay + 1.6) + "s";
+  const g = svg("g", { transform: `translate(${cx} ${cy}) rotate(${tilt * .6})` }, outer);
+  // little green cup where the stem meets the flower
+  svg("ellipse", { cx: 0, cy: 2, rx: s * .22, ry: s * .12, fill: "#3f8f55" }, g);
+  // back petals (darker, left and right)
+  [-1, 1].forEach(side => {
+    svg("path", { d: tulipPetal(s, side), fill: "url(#tulipBack)", stroke: "rgba(255,255,255,.25)", "stroke-width": .7 }, g);
+    svg("path", { d: `M0 ${-.1*s} Q${side*.35*s} ${-.7*s} ${side*.38*s} ${-1.35*s}`, stroke: "rgba(40,0,90,.3)", "stroke-width": .7, fill: "none" }, g);
+  });
+  // front petal (lighter, pointed)
+  svg("path", { d: `M0 0 C${-.55*s} ${-.12*s} ${-.62*s} ${-1.15*s} 0 ${-1.68*s} C${.62*s} ${-1.15*s} ${.55*s} ${-.12*s} 0 0Z`, fill: "url(#tulipFront)", stroke: "rgba(255,255,255,.4)", "stroke-width": .8 }, g);
+  // petal veins + soft highlight
+  svg("path", { d: `M0 ${-.1*s} L0 ${-1.5*s} M0 ${-.2*s} Q${-.3*s} ${-.8*s} ${-.2*s} ${-1.35*s} M0 ${-.2*s} Q${.3*s} ${-.8*s} ${.2*s} ${-1.35*s}`, stroke: "rgba(70,10,130,.25)", "stroke-width": .7, fill: "none" }, g);
+  svg("ellipse", { cx: -.18 * s, cy: -.85 * s, rx: .08 * s, ry: .45 * s, fill: "rgba(255,255,255,.28)" }, g);
+}
+
+function leaf(root, x, y, angle, len, delay, w = .3) {
+  const pos = svg("g", { transform: `translate(${x} ${y}) rotate(${angle})` }, root);
+  const g = svg("g", { class: "leaf" }, pos);
+  g.style.animationDelay = delay + "s";
+  svg("path", { d: `M0 0 C${len*.25} ${-len*w} ${len*.7} ${-len*w*.9} ${len} ${len*.04} C${len*.7} ${len*w*.5} ${len*.25} ${len*w*.5} 0 0Z`, fill: "url(#leaf)" }, g);
+  svg("path", { d: `M0 0 Q${len*.5} ${-len*.05} ${len*.95} ${len*.03}`, stroke: "rgba(20,70,30,.45)", "stroke-width": 1, fill: "none" }, g);
+}
+
+function buildBouquet() {
+  const root = document.getElementById("bouquet");
+  root.innerHTML = "";
+  addDefs(root);
+  const base = { x: 200, y: 392 };
+  // [endX, endY, bendX, flowerSize, tilt]
+  const stems = [
+    [200,  70, 200, 46,   0],
+    [ 98, 125,  92, 40, -18],
+    [302, 125, 308, 40,  16],
+    [ 50, 215,  85, 33, -32],
+    [350, 215, 315, 33,  30],
+    [148, 168, 165, 36,  -8],
+    [252, 168, 235, 36,  10],
+  ];
+  stems.forEach(([x, y, bx, size, tilt], i) => {
+    const t = 0.25 * i;
+    const s = svg("path", { d: `M${base.x} ${base.y} Q${bx} ${(base.y + y) / 2} ${x} ${y}`, class: "stem", pathLength: 1 }, root);
+    s.style.animationDelay = t + "s";
+    const side = x < base.x ? -1 : 1;
+    const lx = base.x + (x - base.x) * .5, ly = base.y + (y - base.y) * .55;
+    leaf(root, lx, ly, side < 0 ? -150 : -30, 46, t + 1.3);
+    flower(root, x, y, size, t + 1.9, tilt);
+  });
+  // long tulip leaves arching out from the base
+  [[-158,160,1.0],[-22,160,1.2],[-128,125,1.4],[-52,125,1.6]].forEach(([a,l,d]) => leaf(root, 200, 388, a, l, d, .14));
+  // buds and little filler blossoms between the big flowers
+  [[120, 60], [282, 62], [18, 150], [382, 150], [200, 15]].forEach(([x, y], i) => {
+    const d = 3 + i * .3;
+    const b = svg("circle", { cx: x, cy: y, r: 0, fill: "#e9d2ff", class: "glow" }, root);
+    b.innerHTML = `<animate attributeName="r" from="0" to="${4 + (i % 3)}" begin="${d}s" dur="1s" fill="freeze"/>`;
+  });
+  // wrapping paper + ribbon
+  const wrap = svg("g", { opacity: 0 }, root);
+  svg("path", { d: "M128 305 Q200 285 272 305 L226 396 L174 396 Z", fill: "url(#paper)", stroke: "rgba(255,255,255,.5)", "stroke-width": 1 }, wrap);
+  svg("path", { d: "M200 300 L174 396 M200 300 L226 396", stroke: "rgba(120,60,190,.25)", "stroke-width": 1, fill: "none" }, wrap);
+  svg("ellipse", { cx: 178, cy: 336, rx: 20, ry: 11, fill: "#7b2cbf", transform: "rotate(-20 178 336)" }, wrap);
+  svg("ellipse", { cx: 222, cy: 336, rx: 20, ry: 11, fill: "#7b2cbf", transform: "rotate(20 222 336)" }, wrap);
+  svg("circle", { cx: 200, cy: 337, r: 7, fill: "#9d4edd" }, wrap);
+  wrap.innerHTML += '<animate attributeName="opacity" from="0" to="1" begin="1s" dur="1.2s" fill="freeze"/>';
+}
+
+function startSparkles() {
+  for (let i = 0; i < 30; i++) {
+    const s = document.createElement("div");
+    s.className = "sparkle";
+    s.style.left = Math.random()*100 + "vw";
+    s.style.top = (60 + Math.random()*50) + "vh";
+    const dur = 6 + Math.random()*8;
+    s.style.animationDuration = dur + "s";
+    s.style.animationDelay = (2 + Math.random()*dur) + "s";
+    s.style.transform = `scale(${0.5 + Math.random()})`;
+    document.body.appendChild(s);
+  }
+}
+</script>
+</body>
+</html>
